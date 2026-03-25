@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parallel Topological Sort</title>
+    <title>Parallel Topological Sort for Computational Graph and Back-Propagation</title>
     <style>
         body {
             font-family: Georgia, "Times New Roman", serif;
@@ -16,6 +16,7 @@
         h1 {
             border-bottom: 2px solid #333;
             padding-bottom: 8px;
+            font-size: 1.5rem;
         }
         h2 {
             margin-top: 32px;
@@ -23,6 +24,13 @@
         }
         p {
             margin: 8px 0;
+        }
+        ul {
+            margin: 8px 0;
+            padding-left: 1.4em;
+        }
+        li {
+            margin: 6px 0;
         }
         a {
             color: #0645ad;
@@ -40,60 +48,92 @@
             border: 1px solid #aaa;
             padding: 6px 10px;
             text-align: left;
+            vertical-align: top;
         }
         table.schedule th {
             background: #eee;
+        }
+        table.schedule td:first-child {
+            white-space: nowrap;
         }
     </style>
 </head>
 <body>
 
-<h1>Parallel Topological Sort</h1>
-<p class="authors">Team members: Andy Tang, Yizhou Wang</p>
+<h1>Parallel Topological Sort for Computational Graph and Back-Propagation</h1>
+<p class="authors">Team members: Andy Tang (andyt), Yizhou Wang (yizhouw3)</p>
 
 <h2>URL</h2>
 <p><a href="https://andytang02.github.io/parallel-topo-sort/">https://andytang02.github.io/parallel-topo-sort/</a></p>
 
 <h2>Summary</h2>
-<p>[TODO: 2-3 sentence summary of your project. What do you plan to do and what parallel systems will you use?]</p>
+<p>We are going to implement a parallel topological sort to evaluate complex computational graphs with backpropagation. We are going to implement two versions, in OpenMP and CUDA. We will evaluate speedup and memory efficiency on different kinds of graphs.</p>
 
 <h2>Background</h2>
-<p>[TODO: Describe the application you are accelerating. What does it do? Include a block diagram or pseudocode if helpful. What aspects of the problem benefit from parallelism, and why?]</p>
+<p>The application accelerates execution of an arbitrary computational graph, represented as a directed acyclic graph (DAG) where each node corresponds to a computation and edges represent data dependencies. Unlike simple pipelines, this graph can have complex branching and merging structure, capturing general-purpose computations such as scientific workflows, compiler intermediate representations, or differentiable programs.</p>
+<p>The topological sort algorithm performs the computation while respecting data dependencies. In brief, the algorithm maintains a set of “ready” nodes with no unmet dependencies, processes them, and updates dependent nodes until the entire graph is evaluated. The reverse pass follows the same structure but traverses the graph in the opposite direction while accumulating gradients. An example sequential implementation is shown below.</p>
+<p>The application can benefit from parallelism because the DAG defines only a partial order, not a total order. At any point in time, multiple nodes may have all dependencies satisfied and can therefore execute simultaneously. This creates a dynamic “frontier” of ready nodes that can be processed in parallel.</p>
 
 <h2>The Challenge</h2>
-<p>[TODO: Why is this problem challenging to parallelize? Describe the workload (dependencies, memory access patterns, locality, communication-to-computation ratio, divergent execution). Describe system constraints that make mapping the workload difficult.]</p>
+<p>Nonetheless, parallelizing the algorithm is also challenging due to complex data dependencies and massive contention to shared data structures. As mentioned above, the computational graphs in this application have complex dependencies. A node cannot execute until all of its predecessors have completed, which limits parallelism along the graph’s critical path and can lead to load imbalance in irregular graphs.</p>
+<p>In addition, shared data structures introduce contention: for example, the ready queue (q) used in the sequential implementation becomes a bottleneck when multiple threads attempt to push and pop nodes simultaneously. Similarly, updating the in-degree array (in_deg[v]) requires synchronization (e.g., atomic decrement operations), and many threads may contend when multiple predecessors finish at the same time. Speedup would be undermined without techniques such as work-stealing queues or batching.</p>
+<p>Yet another challenge is latency. Graph memory accesses have low arithmetic intensity, and locality is very poor without techniques such as compressed row-formatting or sharding.</p>
 
 <h2>Resources</h2>
-<p>[TODO: What computers, starter code, papers, or other resources will you use? Are you starting from scratch or building on existing code? Any special machine access needed?]</p>
+<p>We will implement the project primarily in C++, using OpenMP for multicore CPU parallelism and CUDA for GPU acceleration. Development and testing will be performed on the GHC machines (8 cores) and PSC clusters (up to 128 cores and GPUs) available for the course.</p>
+<p>We will build the system from scratch, including graph generation, a sequential baseline, and both parallel implementations. We may also consult prior work or open-source implementations of parallel graph processing for guidance if they prove useful.</p>
 
 <h2>Goals and Deliverables</h2>
 <p><strong>Plan to Achieve:</strong></p>
 <ul>
-    <li>[TODO: Core goals you must accomplish]</li>
+    <li>A graph generator capable of producing large DAGs (10M–100M vertices) with controllable structure (depth, branching factor, sparsity)</li>
+    <li>A sequential baseline implementation of topological sort with forward pass, to evaluate a computational graph with addition and multiplication</li>
+    <li>A parallel OpenMP version with up to 4x speedup on GHC (8 cores) and 30–40x speedup on PSC (128 cores) on parallel-friendly graphs using techniques such as work-stealing queues and batching</li>
+    <li>A parallel CUDA implementation whose runtime is within 2× of the OpenMP version on 128 cores for parallel-friendly graphs</li>
+    <li>A performance evaluation including runtime vs. graph structure, speedup vs. number of cores, and CPU vs. GPU evaluation.</li>
 </ul>
-<p><strong>Hope to Achieve:</strong></p>
+<p><strong>Hope to Achieve (Stretch Goals):</strong></p>
 <ul>
-    <li>[TODO: Stretch goals if things go well]</li>
+    <li>Improve the OpenMP implementation to have 5–6x speedup on GHC (8 cores) and 50–75x speedup on PSC (128 cores).</li>
+    <li>Improve the CUDA version to match or exceed the runtime of OpenMP version on 128 cores on parallel-friendly graphs</li>
+    <li>Extend the system to support the backward pass (backpropagation) over the computational graph</li>
 </ul>
-<p><strong>Fallback:</strong></p>
+<p><strong>Fallback (Reduced goals):</strong></p>
 <ul>
-    <li>[TODO: Reduced goals if things go slowly]</li>
+    <li>Focus on a highly optimized OpenMP implementation if CUDA is too complex.</li>
+    <li>Reduce graph size if necessary (1M–10M nodes instead of 100M)</li>
 </ul>
-<p><strong>Demo Plan:</strong></p>
-<p>[TODO: Optional — describe any live demo plans for the poster session]</p>
 
 <h2>Platform Choice</h2>
-<p>[TODO: Why is your chosen platform (hardware and/or language) a good fit for this workload?]</p>
+<p>We will implement the system using both OpenMP and CUDA to evaluate parallelism across CPU and GPU architectures. OpenMP is well-suited for this workload because the DAG resides in shared memory and requires frequent concurrent access to structures such as the ready queue and in-degree array, making shared-memory parallelism a natural fit. CUDA complements this by enabling large-scale parallel processing of frontier nodes, which can expose substantial parallelism in wide regions of the graph. This type of forward and backward traversal is also similar to computations in neural networks and other scientific workloads, where graph-structured dependencies arise naturally, making it an interesting candidate for GPU acceleration. Although the irregular structure and synchronization requirements of the algorithm may limit GPU efficiency compared to more regular workloads, implementing a CUDA version allows us to study these tradeoffs and directly compare performance across architectures.</p>
 
 <h2>Schedule</h2>
 <table class="schedule">
     <tr><th>Week</th><th>Plan</th></tr>
-    <tr><td>Week 1 (Mar 23)</td><td>[TODO]</td></tr>
-    <tr><td>Week 2 (Mar 30)</td><td>[TODO]</td></tr>
-    <tr><td>Week 3 (Apr 6)</td><td>[TODO]</td></tr>
-    <tr><td>Week 4 (Apr 13) — Milestone</td><td>[TODO]</td></tr>
-    <tr><td>Week 5 (Apr 20)</td><td>[TODO]</td></tr>
-    <tr><td>Week 6 (Apr 27) — Final</td><td>[TODO]</td></tr>
+    <tr>
+        <td>Week 1 (Mar 23)</td>
+        <td>Implement graph generator<br>Implement sequential baseline</td>
+    </tr>
+    <tr>
+        <td>Week 2 (Mar 30)</td>
+        <td>Implement initial OpenMP versions<br>Benchmark on small/medium graphs and low cores<br>Identify bottlenecks</td>
+    </tr>
+    <tr>
+        <td>Week 3 (Apr 6)</td>
+        <td>Optimize OpenMP with work stealing queues and batching<br>Scale to larger graphs and more cores (10M+ nodes, 64+ cores)<br>Begin CUDA design and kernel planning</td>
+    </tr>
+    <tr>
+        <td>Week 4 (Apr 13) — Milestone</td>
+        <td>Implement initial CUDA version<br>Basic GPU kernel for frontier processing<br>Compare CPU vs GPU performance<br>Prepare milestone report and evaluation</td>
+    </tr>
+    <tr>
+        <td>Week 5 (Apr 20)</td>
+        <td>Optimize CUDA implementation<br>Run large-scale experiments<br>Start detailed performance analysis</td>
+    </tr>
+    <tr>
+        <td>Week 6 (Apr 27) — Final</td>
+        <td>Final optimizations (OpenMP and CUDA)<br>Complete full evaluation including speedup curves and CPU vs. GPU comparison<br>Prepare final report and visualizations</td>
+    </tr>
 </table>
 
 </body>
