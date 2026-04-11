@@ -187,6 +187,17 @@ static void generate_graph(const GraphConfig &cfg, vector<Edge> &edges) {
     }
 }
 
+static void permute_graph(uint32_t N, vector<Edge> &edges, uint64_t seed) {
+    vector<uint32_t> perm(N);
+    iota(perm.begin(), perm.end(), 0u);
+    mt19937_64 rng(seed ^ 0xDEADBEEFull);
+    shuffle(perm.begin(), perm.end(), rng);
+    for (auto &e : edges) {
+        e.src = perm[e.src];
+        e.dst = perm[e.dst];
+    }
+}
+
 static CSRGraph build_csr(uint32_t N, const vector<Edge> &edges) {
     uint32_t E = static_cast<uint32_t>(edges.size());
 
@@ -785,6 +796,7 @@ int main(int argc, char **argv) {
                 cfg.num_vertices, static_cast<unsigned long>(cfg.seed));
         vector<Edge> edges;
         generate_graph(cfg, edges);
+        permute_graph(cfg.num_vertices, edges, cfg.seed);
         fprintf(stderr, "Generated %zu edges, building CSR ...\n", edges.size());
         g = build_csr(cfg.num_vertices, edges);
     }
