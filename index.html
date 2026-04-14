@@ -56,6 +56,25 @@
         table.schedule td:first-child {
             white-space: nowrap;
         }
+        table.results {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+        }
+        table.results th, table.results td {
+            border: 1px solid #aaa;
+            padding: 6px 10px;
+            text-align: center;
+            vertical-align: top;
+        }
+        table.results th {
+            background: #eee;
+        }
+        hr.section-divider {
+            margin: 60px 0 40px;
+            border: none;
+            border-top: 3px solid #333;
+        }
     </style>
 </head>
 <body>
@@ -135,6 +154,129 @@
         <td>Final optimizations (OpenMP and CUDA)<br>Complete full evaluation including speedup curves and CPU vs. GPU comparison<br>Prepare final report and visualizations</td>
     </tr>
 </table>
+
+<hr class="section-divider">
+
+<h1>Project Milestone Report</h1>
+<p class="authors">Team members: Andy Tang (andyt), Yizhou Wang (yizhouw3)</p>
+
+<h2>Revised Plan</h2>
+<table class="schedule">
+    <tr><th>Week</th><th>Plan</th></tr>
+    <tr>
+        <td>Week 1–3 (Mar 23–Apr 6)</td>
+        <td>Implemented graph generator<br>Implemented sequential baseline<br>Implemented initial OpenMP version<br>Implemented initial CUDA versions with some warp-level and block-level optimizations</td>
+    </tr>
+    <tr>
+        <td>Week 4 First Half (Apr 13–Apr 17) — Milestone</td>
+        <td>Benchmark initial OpenMP and CUDA versions on preliminary graphs<br>Identify key bottlenecks<br>Prepare Milestone Report</td>
+    </tr>
+    <tr>
+        <td>Week 4 Second Half (Apr 17–Apr 20)</td>
+        <td>(Yizhou) Optimize OpenMP using: thread-local queues, reduced synchronization, possible work stealing<br>(Andy) Optimize CUDA by: reducing global memory traffic, improving frontier processing<br>Run experiments on more diverse graph types</td>
+    </tr>
+    <tr>
+        <td>Week 5 First Half (Apr 20–Apr 24)</td>
+        <td>Implement backpropagation on computational graph<br>Integrate backprop into sequential baseline<br>Extend to parallel versions<br>Continue profiling and optimizing OpenMP and CUDA</td>
+    </tr>
+    <tr>
+        <td>Week 5 Second Half</td>
+        <td>Optimize performance of backpropagation on parallel versions<br>Begin to run large-scale experiments on GHC and PSC</td>
+    </tr>
+    <tr>
+        <td>Week 6 First Half</td>
+        <td>Finalize optimizations for OpenMP and CUDA<br>Evaluate performance across graph size, outdegree, frontier size, graph depth<br>Collect data on speedup, scalability, and memory behavior</td>
+    </tr>
+    <tr>
+        <td>Week 6 Second Half (Apr 27) — Final</td>
+        <td>Complete full evaluation including speedup curves and CPU vs. GPU comparison<br>Prepare final report, poster, and visualizations</td>
+    </tr>
+</table>
+
+<h2>Work Completed So Far</h2>
+<p>So far, we have implemented a graph generator, the implementation of a sequential baseline, as well as a preliminary implementation of the OpenMP and CUDA topological sort.</p>
+<p>The graph generator allows the specification of several parameters including number of vertices, average outdegree per node, number of layers, Dirichlet shape, etc. It allows us to generate several different types of graphs based on size, sparsity, and depth.</p>
+<p>The CUDA implementation processes the full frontiers of the graph one by one, and launches a new CUDA kernel for each frontier. We implemented three different versions: a naive version which launches a thread per node in the frontier and uses atomics to update shared indegree and state variables, and then writes to a new global frontier; a second version which optimizes the write to the new global frontier by first aggregating into a block-local frontier; and a third version which further optimizes the approach by launching a warp for each different node, which allows parallel processing of edges.</p>
+<p>The basic OpenMP implementation keeps the current frontier and parallelizes over vertices in the frontier. When discovering new nodes with in-degree 0, they are added to the queue for next. Contention occurs to update in degree of discovered nodes and when pushing to the next queue.</p>
+
+<h2>Updated Goals and Deliverables</h2>
+<p>So far, we are on track with our goals and deliverables in terms of implementing a graph generator as well as implementing a parallel OpenMP and CUDA version of topological sort. However, we may have to reduce the performance expectations of the CUDA version.</p>
+<p>Specifically, the CUDA version requires massive parallelism in order to be successful, with either a large outdegree of 1000+ per node and large frontier sizes of 1000+. Even then, it achieves only 2x speedup of the CPU version due to the fact CUDA version requires a lot of global writes which is not efficient on GPUs, and overall there is low arithmetic intensity.</p>
+<p>The OpenMP version with 8 processors achieves 3x speedup on best inputs. From now we can profile the code to find out what the bottlenecks are.</p>
+<p>By the poster session, we also believe we can implement the backpropagation which was one of our stretch goals. We will present many detailed graphs on the performance based on the different types of graphs and different optimizations we implemented.</p>
+
+<h2>Preliminary Results</h2>
+<p><strong>Results on CUDA:</strong></p>
+<table class="results">
+    <tr>
+        <th>Nodes</th>
+        <th>Average Outdegree</th>
+        <th>Average Frontier Size</th>
+        <th>CUDA Baseline Speedup</th>
+        <th>CUDA Block-Level Speedup</th>
+        <th>CUDA Warp-Level Speedup</th>
+    </tr>
+    <tr>
+        <td>100,000</td>
+        <td>1000</td>
+        <td>1000</td>
+        <td>0.46x</td>
+        <td>0.39x</td>
+        <td>2.45x</td>
+    </tr>
+    <tr>
+        <td>10M</td>
+        <td>5</td>
+        <td>100</td>
+        <td>0.20x</td>
+        <td>0.29x</td>
+        <td>0.57x</td>
+    </tr>
+    <tr>
+        <td>10M</td>
+        <td>5</td>
+        <td>1000</td>
+        <td>1.11x</td>
+        <td>1.50x</td>
+        <td>2.57x</td>
+    </tr>
+</table>
+
+<p><strong>Results on OpenMP:</strong></p>
+<table class="results">
+    <tr>
+        <th>Nodes</th>
+        <th>Average Outdegree</th>
+        <th>OpenMP Basic Speedup</th>
+        <th>OpenMP Thread-local Speedup</th>
+    </tr>
+    <tr>
+        <td>100,000</td>
+        <td>1000</td>
+        <td>0.44x</td>
+        <td>0.53x</td>
+    </tr>
+    <tr>
+        <td>10M</td>
+        <td>5</td>
+        <td>1.60x</td>
+        <td>3.42x</td>
+    </tr>
+    <tr>
+        <td>10M</td>
+        <td>50</td>
+        <td>2.69x</td>
+        <td>2.11x</td>
+    </tr>
+</table>
+
+<h2>Concerns and Issues</h2>
+<ul>
+    <li>GPU parallelism requires graphs which are very large in some way</li>
+    <li>What computation should we compute on the graph?</li>
+    <li>How to further optimize the parallel versions in interesting ways?</li>
+    <li>How to overcome contention on in_deg arrays and next_queue. Perhaps work stealing.</li>
+</ul>
 
 </body>
 </html>
