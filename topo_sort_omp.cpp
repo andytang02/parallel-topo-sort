@@ -1,3 +1,5 @@
+#define CHUNK_SIZE 64
+
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -52,7 +54,7 @@ static double omp_topo_sort_basic(const CSRGraph &g, vector<float> &values) {
     while (cur_size > 0) {
         uint32_t next_size = 0;
 
-        #pragma omp parallel for schedule(dynamic, 64) default(none) \
+        #pragma omp parallel for schedule(dynamic, CHUNK_SIZE) default(none) \
             shared(cur, cur_size, next, next_size, row_offsets, col_indices, \
                    in_deg, values)
         for (uint32_t i = 0; i < cur_size; i++) {
@@ -139,7 +141,7 @@ static double omp_topo_sort_local(const CSRGraph &g, vector<float> &values) {
             int tid = omp_get_thread_num();
             local_q[tid].clear();
 
-            #pragma omp for schedule(dynamic, 64)
+            #pragma omp for schedule(dynamic, CHUNK_SIZE)
             for (uint32_t i = 0; i < cur_size; i++) {
                 uint32_t u     = cur[i];
                 float    val_u = values[u];
@@ -281,16 +283,17 @@ int main(int argc, char **argv) {
     double local_ms = omp_topo_sort_local(g, local_values);
 
     // Report
-    printf("\n%-22s %10.3f ms\n", "Sequential", seq_ms);
-    printf("%-22s %10.3f ms  (%.2fx vs seq)\n",
+    printf("\n%-25s %10.3f ms\n", "Sequential", seq_ms);
+    printf("%-25s %10.3f ms  (%.2fx vs seq)\n",
            "OMP basic", basic_ms, seq_ms / basic_ms);
-    printf("%-22s %10.3f ms  (%.2fx vs seq, %.2fx vs basic)\n",
+    printf("%-25s %10.3f ms  (%.2fx vs seq, %.2fx vs basic)\n",
            "OMP thread-local", local_ms, seq_ms / local_ms, basic_ms / local_ms);
 
     bool p1 = verify(seq_values, basic_values, "basic");
     bool p2 = verify(seq_values, local_values, "local");
-    printf("\nVerification OMP basic:        %s\n", p1 ? "PASSED" : "FAILED");
-    printf("Verification OMP thread-local: %s\n",  p2 ? "PASSED" : "FAILED");
+    printf("\nVerification OMP basic:           %s\n", p1 ? "PASSED" : "FAILED");
+    printf("Verification OMP thread-local:    %s\n",  p2 ? "PASSED" : "FAILED");
+
 
     return 0;
 }
