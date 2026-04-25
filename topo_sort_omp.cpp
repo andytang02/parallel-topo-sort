@@ -104,7 +104,7 @@ static double omp_topo_sort_basic(const CSRGraph &g, vector<float> &values) {
  *     next-frontier with a single pass, avoiding per-node atomic contention on
  *     the frontier counter (analogous to the CUDA block-local kernel).
  */
-static double omp_topo_sort_local(const CSRGraph &g, vector<float> &values) {
+static double omp_topo_sort_local(const CSRGraph &g, vector<float> &values, const int nthreads) {
     uint32_t N = g.num_vertices;
     const auto &row_offsets = g.row_offsets;
     const auto &col_indices = g.col_indices;
@@ -129,7 +129,6 @@ static double omp_topo_sort_local(const CSRGraph &g, vector<float> &values) {
     uint32_t total  = cur_size;
     uint32_t levels = 0;
 
-    int nthreads = omp_get_max_threads();
     vector<vector<uint32_t>> local_q(nthreads);
 
     auto t0 = chrono::high_resolution_clock::now();
@@ -280,7 +279,7 @@ int main(int argc, char **argv) {
 
     // OMP thread-local frontier buffers
     vector<float> local_values;
-    double local_ms = omp_topo_sort_local(g, local_values);
+    double local_ms = omp_topo_sort_local(g, local_values, num_threads);
 
     // Report
     printf("\n%-25s %10.3f ms\n", "Sequential", seq_ms);
@@ -293,7 +292,6 @@ int main(int argc, char **argv) {
     bool p2 = verify(seq_values, local_values, "local");
     printf("\nVerification OMP basic:           %s\n", p1 ? "PASSED" : "FAILED");
     printf("Verification OMP thread-local:    %s\n",  p2 ? "PASSED" : "FAILED");
-
 
     return 0;
 }
